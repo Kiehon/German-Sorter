@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>German Noun Sorter (Smart AI Edition)</title>
+    <title>German Noun Sorter (Smart AI & Sync Edition)</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #f9f9f9; }
         h1 { text-align: center; color: #333; }
@@ -21,6 +21,15 @@
         .clear-btn:hover { background-color: #c9302c; }
         .game-btn { background-color: #ff1493; color: white; font-weight: bold; }
         .game-btn:hover { background-color: #db0073; }
+        
+        /* New Sync Panel Styles */
+        .sync-section { background: #eee; padding: 15px; border-radius: 8px; max-width: 950px; margin: 20px auto; text-align: center; border: 1px dashed #bbb; }
+        .sync-title { font-weight: bold; margin-bottom: 10px; color: #555; }
+        .export-btn { background-color: #009688; color: white; }
+        .export-btn:hover { background-color: #00796b; }
+        .import-btn { background-color: #607d8b; color: white; }
+        .import-btn:hover { background-color: #455a64; }
+
         table { width: 100%; border-collapse: collapse; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 50px; }
         th, td { border: 2px solid #333; padding: 12px; text-align: left; vertical-align: top; width: 20%; }
         th { background-color: #f2f2f2; font-size: 18px; }
@@ -74,6 +83,12 @@
         </thead>
         <tbody id="tableBody"></tbody>
     </table>
+
+    <div class="sync-section">
+        <div class="sync-title">📦 Device-to-Device Synchronization Panel</div>
+        <button class="export-btn" onclick="exportDataToClipboard()">📤 Export to Clipboard (Laptop)</button>
+        <button class="import-btn" onclick="importDataFromPrompt()">📥 Import Data (Phone)</button>
+    </div>
 
     <div id="gameOverlay" class="game-overlay">
         <div class="game-box">
@@ -145,15 +160,18 @@
         let categoriesList = JSON.parse(localStorage.getItem('myGermanCategories')) || [];
 
         window.onload = function() {
-            document.getElementById('categoryInput').innerHTML = '';
-            document.getElementById('tableBody').innerHTML = '';
-            categoriesList.forEach(cat => createCategoryElements(cat.id, cat.name));
-            renderAllWords();
-
+            rebuildUI();
             document.getElementById('gameInput').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') { checkGameAnswer(); }
             });
         };
+
+        function rebuildUI() {
+            document.getElementById('categoryInput').innerHTML = '';
+            document.getElementById('tableBody').innerHTML = '';
+            categoriesList.forEach(cat => createCategoryElements(cat.id, cat.name));
+            renderAllWords();
+        }
 
         function renderAllWords() {
             document.querySelectorAll('.der-cell, .die-cell, .das-cell, .plural-cell').forEach(cell => cell.innerHTML = '');
@@ -234,14 +252,12 @@
             document.getElementById('wordInput').value = "";
         }
 
-        // NEW KEYLESS AI AUTOMATION PIPELINE
         window.addWordWithSmartAI = async function() {
             const wordInput = document.getElementById('wordInput').value.trim();
             if (wordInput === "") { alert("Please type a German word first!"); return; }
             const lookupWord = wordInput.toLowerCase();
             const btn = document.getElementById('aiBtn');
 
-            // 1. Look locally first to save time/network resources
             const localMatch = baseDatabase[lookupWord] || userDatabase[lookupWord];
             if (localMatch) {
                 let targetCatName = localMatch.category || "General Vocabulary";
@@ -260,7 +276,6 @@
                 return;
             }
 
-            // 2. Fetch from the cloud using an open Keyless inference worker
             try {
                 btn.disabled = true;
                 btn.textContent = "⚡ AI Analyzing...";
@@ -282,11 +297,9 @@
                 }
 
                 let rawCategory = data.category || "General Vocabulary";
-                // Capitalize first letters neatly
                 let cleanCategoryName = rawCategory.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                 let cleanCategoryId = cleanCategoryName.toLowerCase().replace(/[^a-z0-9]/g, '-');
 
-                // Dynamic Category Creation on the fly!
                 let matchedCategory = categoriesList.find(c => c.id === cleanCategoryId);
                 if (!matchedCategory) {
                     matchedCategory = { id: cleanCategoryId, name: cleanCategoryName };
@@ -295,11 +308,9 @@
                     createCategoryElements(cleanCategoryId, cleanCategoryName);
                 }
 
-                // Save to local cache database for instant lookups in future
                 userDatabase[lookupWord] = { gender: cleanedGender, meaning: data.meaning, category: cleanCategoryName };
                 localStorage.setItem('myGermanDatabase', JSON.stringify(userDatabase));
 
-                // Paint to the grid
                 displayWordInGrid(wordInput, matchedCategory.id, cleanedGender, data.meaning);
                 savedWordsList.push({ word: wordInput, category: matchedCategory.id, gender: cleanedGender, meaning: data.meaning });
                 localStorage.setItem('mySavedWordsGrid', JSON.stringify(savedWordsList));
@@ -313,6 +324,54 @@
             } finally {
                 btn.disabled = false;
                 btn.textContent = "✨ Auto-Fill & Add";
+            }
+        }
+
+        /* 📤 EXPORT FUNCTION: Packing everything up cleanly into text */
+        window.exportDataToClipboard = function() {
+            const syncPackage = {
+                db: userDatabase,
+                grid: savedWordsList,
+                cats: categoriesList
+            };
+            const encodedText = btoa(unescape(encodeURIComponent(JSON.stringify(syncPackage))));
+            
+            navigator.clipboard.writeText(encodedText).then(() => {
+                alert("📋 Sync Data copied to clipboard successfully! Send this code string to your phone (via WhatsApp/Email) and click Import there.");
+            }).catch(err => {
+                // Fallback if browser blocks automatic copying
+                prompt("Could not auto-copy. Please manually copy this code string entirely:", encodedText);
+            });
+        }
+
+        /* 📥 IMPORT FUNCTION: Parsing data string onto the target device */
+        window.importDataFromPrompt = function() {
+            const base64Code = prompt("Ppaste the copied Sync code string from your other device here:");
+            if (!base64Code || base64Code.trim() === "") return;
+
+            try {
+                const decodedText = decodeURIComponent(escape(atob(base64Code.trim())));
+                const parsedData = JSON.parse(decodedText);
+
+                if (parsedData.db && parsedData.grid && parsedData.cats) {
+                    if (confirm("Importing this package will overwrite your current phone list. Proceed?")) {
+                        userDatabase = parsedData.db;
+                        savedWordsList = parsedData.grid;
+                        categoriesList = parsedData.cats;
+
+                        localStorage.setItem('myGermanDatabase', JSON.stringify(userDatabase));
+                        localStorage.setItem('mySavedWordsGrid', JSON.stringify(savedWordsList));
+                        localStorage.setItem('myGermanCategories', JSON.stringify(categoriesList));
+
+                        rebuildUI();
+                        alert("🎉 Data Sync Complete! Your phone board is now fully matching.");
+                    }
+                } else {
+                    alert("Invalid data package format.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("❌ Synchronizing failed. Make sure you copied the full structural code string text.");
             }
         }
 
