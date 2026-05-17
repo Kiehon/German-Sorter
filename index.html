@@ -199,7 +199,6 @@
         }
 
         async function askGeminiAPI(promptText) {
-            // Securely fetch or ask for the API Key in-browser
             let userKey = localStorage.getItem('userGeminiApiKey');
             if (!userKey) {
                 userKey = prompt("Please input your Gemini API Key to use AI features:");
@@ -207,9 +206,9 @@
                 localStorage.setItem('userGeminiApiKey', userKey.trim());
             }
 
-            const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${userKey}`;
+            // FIXED ENDPOINT URL STRING
+            const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${userKey.trim()}`;
 
-            // Directly calling Gemini instead of going through the public proxy to prevent CORS/Rate blocks
             const response = await fetch(targetUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -217,11 +216,11 @@
             });
             
             if (!response.ok) {
-                if(response.status === 400 || response.status === 403) {
-                    localStorage.removeItem('userGeminiApiKey'); // Clear invalid keys
+                if (response.status === 400 || response.status === 403) {
+                    localStorage.removeItem('userGeminiApiKey'); 
                     throw new Error("Invalid API Key provided.");
                 }
-                throw new Error("API Connection failed.");
+                throw new Error(`API Connection failed. Status: ${response.status}`);
             }
             const resData = await response.json();
             return resData.candidates[0].content.parts[0].text;
@@ -244,16 +243,28 @@
                 if (!dataLine) { alert("AI parsing formatting error. Try again!"); return; }
 
                 const components = dataLine.split('|');
-                const isValid = components[1].toLowerCase().trim() === 'true';
+                
+                // Safe lookup for array elements
+                const verdictIdx = components.indexOf("VERDICT") + 1;
+                const genderIdx = components.indexOf("GENDER") + 1;
+                const meaningIdx = components.indexOf("MEANING") + 1;
+                const categoryIdx = components.indexOf("CATEGORY") + 1;
+
+                const isValid = components[verdictIdx]?.toLowerCase().trim() === 'true';
 
                 if (!isValid) {
                     alert(`❌ Word Blocked: "${wordInput}" is misspelled or not a recognized German noun.`);
                     return;
                 }
 
-                const detectedGender = components[3].toLowerCase().trim();
-                const wordMeaning = components[5].trim();
-                let chosenCategoryName = components[7].trim() || "General Vocabulary";
+                const detectedGender = components[genderIdx]?.toLowerCase().trim();
+                const wordMeaning = components[meaningIdx]?.trim();
+                let chosenCategoryName = components[categoryIdx]?.trim() || "General Vocabulary";
+
+                if (!detectedGender || !wordMeaning) {
+                    alert("AI returned incomplete data. Please try again.");
+                    return;
+                }
 
                 chosenCategoryName = chosenCategoryName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                 const generatedCatId = chosenCategoryName.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -303,7 +314,7 @@
                 localStorage.removeItem('myGermanDatabase');
                 localStorage.removeItem('mySavedWordsGrid');
                 localStorage.removeItem('myGermanCategories');
-                localStorage.removeItem('userGeminiApiKey'); // Clear stored api key context too
+                localStorage.removeItem('userGeminiApiKey'); 
                 location.reload(); 
             }
         }
