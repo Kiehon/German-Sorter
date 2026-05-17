@@ -206,8 +206,9 @@
                 localStorage.setItem('userGeminiApiKey', userKey.trim());
             }
 
-            // FIXED ENDPOINT URL STRING
-            const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${userKey.trim()}`;
+            // Fixed Endpoint structure to target production-stable alias mapping.
+            const cleanKey = userKey.trim();
+            const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
 
             const response = await fetch(targetUrl, {
                 method: "POST",
@@ -218,7 +219,7 @@
             if (!response.ok) {
                 if (response.status === 400 || response.status === 403) {
                     localStorage.removeItem('userGeminiApiKey'); 
-                    throw new Error("Invalid API Key provided.");
+                    throw new Error("Invalid API Key structure or unauthorized access.");
                 }
                 throw new Error(`API Connection failed. Status: ${response.status}`);
             }
@@ -244,7 +245,6 @@
 
                 const components = dataLine.split('|');
                 
-                // Safe lookup for array elements
                 const verdictIdx = components.indexOf("VERDICT") + 1;
                 const genderIdx = components.indexOf("GENDER") + 1;
                 const meaningIdx = components.indexOf("MEANING") + 1;
