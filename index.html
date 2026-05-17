@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>German Noun Sorter (AI Phone Edition)</title>
+    <title>German Noun Sorter (Offline Smart Edition)</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #f9f9f9; }
         h1 { text-align: center; color: #333; }
@@ -52,8 +52,8 @@
     <div class="input-section">
         <input type="text" id="wordInput" placeholder="Enter German word (e.g., Tisch)">
         <select id="categoryInput"></select>
-        <button onclick="addWord()">Add Word</button>
-        <button class="ai-btn" onclick="addWordWithAI()">✨ AI Magic Add</button>
+        <button onclick="addWord()">Manual Add</button>
+        <button class="ai-btn" onclick="addWordWithLocalDictionary()">✨ Auto-Fill & Add</button>
         <button class="delete-btn" onclick="deleteSpecificWord()">Delete Word</button>
         <div class="divider"></div>
         <button class="add-cat-btn" onclick="promptNewCategory()">+ Create Category</button>
@@ -90,32 +90,60 @@
     </div>
 
     <script>
+        // Massive local dictionary containing school items, food, time, house items, and animals
         const baseDatabase = {
-            "bleistift": { gender: "der", meaning: "pencil" }, 
-            "kugelschreiber": { gender: "der", meaning: "pen" }, 
-            "kuli": { gender: "der", meaning: "pen" }, 
-            "spätzer": { gender: "der", meaning: "pencil sharpener" }, 
-            "tafel": { gender: "die", meaning: "blackboard" }, 
-            "kreide": { gender: "die", meaning: "chalk" }, 
-            "tasche": { gender: "die", meaning: "bag" },
-            "tee": { gender: "der", meaning: "tea" }, 
-            "kaffee": { gender: "der", meaning: "coffee" }, 
-            "saft": { gender: "der", meaning: "juice" }, 
-            "milch": { gender: "die", meaning: "milk" }, 
-            "pizza": { gender: "die", meaning: "pizza" }, 
-            "wasser": { gender: "das", meaning: "water" }, 
-            "haus": { gender: "das", meaning: "house" }, 
-            "auto": { gender: "das", meaning: "car" }, 
-            "hund": { gender: "der", meaning: "dog" }, 
-            "hunde": { gender: "plural", meaning: "dogs" }, 
-            "essen": { gender: "das", meaning: "food" },
-            "montag": { gender: "der", meaning: "Monday" }, 
-            "dienstag": { gender: "der", meaning: "Tuesday" }, 
-            "mittwoch": { gender: "der", meaning: "Wednesday" }, 
-            "donnerstag": { gender: "der", meaning: "Thursday" }, 
-            "freitag": { gender: "der", meaning: "Friday" }, 
-            "samstag": { gender: "der", meaning: "Saturday" }, 
-            "sonntag": { gender: "der", meaning: "Sunday" }
+            // School & Stationery
+            "bleistift": { gender: "der", meaning: "pencil", category: "School Items" }, 
+            "kugelschreiber": { gender: "der", meaning: "pen", category: "School Items" }, 
+            "kuli": { gender: "der", meaning: "pen", category: "School Items" }, 
+            "spätzer": { gender: "der", meaning: "pencil sharpener", category: "School Items" }, 
+            "tafel": { gender: "die", meaning: "blackboard", category: "School Items" }, 
+            "kreide": { gender: "die", meaning: "chalk", category: "School Items" }, 
+            "tasche": { gender: "die", meaning: "bag", category: "School Items" },
+            "buch": { gender: "das", meaning: "book", category: "School Items" },
+            "heft": { gender: "das", meaning: "notebook", category: "School Items" },
+            "lineal": { gender: "das", meaning: "ruler", category: "School Items" },
+            "schere": { gender: "die", meaning: "scissors", category: "School Items" },
+            "lehrer": { gender: "der", meaning: "teacher (male)", category: "School Items" },
+            "lehrerin": { gender: "die", meaning: "teacher (female)", category: "School Items" },
+            // Food & Drinks
+            "tee": { gender: "der", meaning: "tea", category: "Food & Drinks" }, 
+            "kaffee": { gender: "der", meaning: "coffee", category: "Food & Drinks" }, 
+            "saft": { gender: "der", meaning: "juice", category: "Food & Drinks" }, 
+            "milch": { gender: "die", meaning: "milk", category: "Food & Drinks" }, 
+            "pizza": { gender: "die", meaning: "pizza" , category: "Food & Drinks"}, 
+            "wasser": { gender: "das", meaning: "water", category: "Food & Drinks" }, 
+            "essen": { gender: "das", meaning: "food", category: "Food & Drinks" },
+            "apfel": { gender: "der", meaning: "apple", category: "Food & Drinks" },
+            "brot": { gender: "das", meaning: "bread", category: "Food & Drinks" },
+            "käse": { gender: "der", meaning: "cheese", category: "Food & Drinks" },
+            // Days & Time
+            "montag": { gender: "der", meaning: "Monday", category: "Time & Days" }, 
+            "dienstag": { gender: "der", meaning: "Tuesday", category: "Time & Days" }, 
+            "mittwoch": { gender: "der", meaning: "Wednesday", category: "Time & Days" }, 
+            "donnerstag": { gender: "der", meaning: "Thursday", category: "Time & Days" }, 
+            "freitag": { gender: "der", meaning: "Friday", category: "Time & Days" }, 
+            "samstag": { gender: "der", meaning: "Saturday", category: "Time & Days" }, 
+            "sonntag": { gender: "der", meaning: "Sunday", category: "Time & Days" },
+            "tag": { gender: "der", meaning: "day", category: "Time & Days" },
+            "woche": { gender: "die", meaning: "week", category: "Time & Days" },
+            "jahr": { gender: "das", meaning: "year", category: "Time & Days" },
+            // House & Objects
+            "haus": { gender: "das", meaning: "house", category: "House & Home" }, 
+            "auto": { gender: "das", meaning: "car", category: "Transport" }, 
+            "tisch": { gender: "der", meaning: "table", category: "House & Home" },
+            "stuhl": { gender: "der", meaning: "chair", category: "House & Home" },
+            "bett": { gender: "das", meaning: "bed", category: "House & Home" },
+            "lampe": { gender: "die", meaning: "lamp", category: "House & Home" },
+            "tür": { gender: "die", meaning: "door", category: "House & Home" },
+            "fenster": { gender: "das", meaning: "window", category: "House & Home" },
+            // Animals
+            "hund": { gender: "der", meaning: "dog", category: "Animals" }, 
+            "hunde": { gender: "plural", meaning: "dogs", category: "Animals" },
+            "katze": { gender: "die", meaning: "cat", category: "Animals" },
+            "maus": { gender: "die", meaning: "mouse", category: "Animals" },
+            "pferd": { gender: "das", meaning: "horse", category: "Animals" },
+            "vogel": { gender: "der", meaning: "bird", category: "Animals" }
         };
 
         let userDatabase = JSON.parse(localStorage.getItem('myGermanDatabase')) || {};
@@ -125,6 +153,17 @@
         window.onload = function() {
             document.getElementById('categoryInput').innerHTML = '';
             document.getElementById('tableBody').innerHTML = '';
+            
+            // Setup fallback categories if empty
+            if (categoriesList.length === 0) {
+                categoriesList = [
+                    { id: "school-items", name: "School Items" },
+                    { id: "food---drinks", name: "Food & Drinks" },
+                    { id: "general-vocabulary", name: "General Vocabulary" }
+                ];
+                localStorage.setItem('myGermanCategories', JSON.stringify(categoriesList));
+            }
+
             categoriesList.forEach(cat => createCategoryElements(cat.id, cat.name));
             renderAllWords();
 
@@ -198,93 +237,39 @@
             document.getElementById('wordInput').value = "";
         }
 
-        async function askGeminiAPI(promptText) {
-            let userKey = localStorage.getItem('userGeminiApiKey');
-            if (!userKey) {
-                userKey = prompt("Please input your Gemini API Key to use AI features:");
-                if (!userKey) throw new Error("API Key required.");
-                localStorage.setItem('userGeminiApiKey', userKey.trim());
-            }
-
-            // Fixed Endpoint structure to target production-stable alias mapping.
-            const cleanKey = userKey.trim();
-            const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${cleanKey}`;
-
-            const response = await fetch(targetUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ contents: [{ parts: [{ text: promptText }] }] })
-            });
-            
-            if (!response.ok) {
-                if (response.status === 400 || response.status === 403) {
-                    localStorage.removeItem('userGeminiApiKey'); 
-                    throw new Error("Invalid API Key structure or unauthorized access.");
-                }
-                throw new Error(`API Connection failed. Status: ${response.status}`);
-            }
-            const resData = await response.json();
-            return resData.candidates[0].content.parts[0].text;
-        }
-
-        window.addWordWithAI = async function() {
+        // REPLACEMENT FEATURE: Works instantly locally without needing external APIs or Keys!
+        window.addWordWithLocalDictionary = function() {
             const wordInput = document.getElementById('wordInput').value.trim();
             if (wordInput === "") { alert("Please type a German word first!"); return; }
+            const lookupWord = wordInput.toLowerCase();
 
-            const existingCategoriesStr = categoriesList.map(c => c.name).join(", ");
-            const securePrompt = `Analyze the German word: "${wordInput}". Determine if it is a real German noun. 
-            Respond with EXACTLY one line using this format:
-            VERDICT|[true or false]|GENDER|[der, die, das, or plural]|MEANING|[English translation]|CATEGORY|[An English category name from: [${existingCategoriesStr}] if applicable, or make a new simple one].
-            Example output line:
-            VERDICT|true|GENDER|der|MEANING|dog|CATEGORY|Animals`;
+            // Match with dictionary lookup
+            const foundData = baseDatabase[lookupWord] || userDatabase[lookupWord];
 
-            try {
-                const aiOutputText = await askGeminiAPI(securePrompt);
-                const dataLine = aiOutputText.trim().split('\n').find(l => l.includes("VERDICT|"));
-                if (!dataLine) { alert("AI parsing formatting error. Try again!"); return; }
-
-                const components = dataLine.split('|');
+            if (foundData) {
+                let categoryId = document.getElementById('categoryInput').value;
                 
-                const verdictIdx = components.indexOf("VERDICT") + 1;
-                const genderIdx = components.indexOf("GENDER") + 1;
-                const meaningIdx = components.indexOf("MEANING") + 1;
-                const categoryIdx = components.indexOf("CATEGORY") + 1;
-
-                const isValid = components[verdictIdx]?.toLowerCase().trim() === 'true';
-
-                if (!isValid) {
-                    alert(`❌ Word Blocked: "${wordInput}" is misspelled or not a recognized German noun.`);
-                    return;
+                // If the word has a native predefined dictionary group, try targeting it automatically
+                if (foundData.category) {
+                    const dynamicId = foundData.category.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                    let matchedCategory = categoriesList.find(c => c.id === dynamicId);
+                    if (!matchedCategory) {
+                        matchedCategory = { id: dynamicId, name: foundData.category };
+                        categoriesList.push(matchedCategory);
+                        localStorage.setItem('myGermanCategories', JSON.stringify(categoriesList));
+                        createCategoryElements(dynamicId, foundData.category);
+                    }
+                    categoryId = matchedCategory.id;
                 }
 
-                const detectedGender = components[genderIdx]?.toLowerCase().trim();
-                const wordMeaning = components[meaningIdx]?.trim();
-                let chosenCategoryName = components[categoryIdx]?.trim() || "General Vocabulary";
-
-                if (!detectedGender || !wordMeaning) {
-                    alert("AI returned incomplete data. Please try again.");
-                    return;
-                }
-
-                chosenCategoryName = chosenCategoryName.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                const generatedCatId = chosenCategoryName.toLowerCase().replace(/[^a-z0-9]/g, '-');
-
-                let matchedCategory = categoriesList.find(c => c.id === generatedCatId);
-                if (!matchedCategory) {
-                    matchedCategory = { id: generatedCatId, name: chosenCategoryName };
-                    categoriesList.push(matchedCategory);
-                    localStorage.setItem('myGermanCategories', JSON.stringify(categoriesList));
-                    createCategoryElements(generatedCatId, chosenCategoryName);
-                }
-
-                displayWordInGrid(wordInput, matchedCategory.id, detectedGender, wordMeaning);
-                savedWordsList.push({ word: wordInput, category: matchedCategory.id, gender: detectedGender, meaning: wordMeaning });
+                displayWordInGrid(wordInput, categoryId, foundData.gender, foundData.meaning);
+                savedWordsList.push({ word: wordInput, category: categoryId, gender: foundData.gender, meaning: foundData.meaning });
                 localStorage.setItem('mySavedWordsGrid', JSON.stringify(savedWordsList));
                 document.getElementById('wordInput').value = "";
-
-            } catch (error) {
-                console.error(error);
-                alert(error.message || "AI network processing error. Please try again.");
+            } else {
+                // Smooth fallback if word isn't listed in preset dictionary
+                alert(`"${wordInput}" was not found in the quick local dictionary. Let's add it manually!`);
+                addWord();
             }
         }
 
@@ -314,7 +299,6 @@
                 localStorage.removeItem('myGermanDatabase');
                 localStorage.removeItem('mySavedWordsGrid');
                 localStorage.removeItem('myGermanCategories');
-                localStorage.removeItem('userGeminiApiKey'); 
                 location.reload(); 
             }
         }
