@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>German Noun Sorter (Offline Smart Edition)</title>
+    <title>German Noun Sorter (Smart AI Edition)</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #f9f9f9; }
         h1 { text-align: center; color: #333; }
@@ -11,7 +11,7 @@
         input, select, button { padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
         button { background-color: #4CAF50; color: white; cursor: pointer; border: none; }
         button:hover { background-color: #45a049; }
-        .ai-btn { background-color: #8a2be2; color: white; }
+        .ai-btn { background-color: #8a2be2; color: white; font-weight: bold; }
         .ai-btn:hover { background-color: #7a1fa2; }
         .delete-btn { background-color: #ff9800; color: white; }
         .delete-btn:hover { background-color: #e68a00; }
@@ -50,10 +50,10 @@
     <div class="hint-text">💡 Tip: Double-click any category name to rename it!</div>
 
     <div class="input-section">
-        <input type="text" id="wordInput" placeholder="Enter German word (e.g., Tisch)">
+        <input type="text" id="wordInput" placeholder="Enter German word (e.g., Zug)">
         <select id="categoryInput"></select>
         <button onclick="addWord()">Manual Add</button>
-        <button class="ai-btn" onclick="addWordWithLocalDictionary()">✨ Auto-Fill & Add</button>
+        <button class="ai-btn" id="aiBtn" onclick="addWordWithSmartAI()">✨ Auto-Fill & Add</button>
         <button class="delete-btn" onclick="deleteSpecificWord()">Delete Word</button>
         <div class="divider"></div>
         <button class="add-cat-btn" onclick="promptNewCategory()">+ Create Category</button>
@@ -90,9 +90,7 @@
     </div>
 
     <script>
-        // Massive local dictionary containing school items, food, time, house items, and animals
         const baseDatabase = {
-            // School & Stationery
             "bleistift": { gender: "der", meaning: "pencil", category: "School Items" }, 
             "kugelschreiber": { gender: "der", meaning: "pen", category: "School Items" }, 
             "kuli": { gender: "der", meaning: "pen", category: "School Items" }, 
@@ -106,7 +104,6 @@
             "schere": { gender: "die", meaning: "scissors", category: "School Items" },
             "lehrer": { gender: "der", meaning: "teacher (male)", category: "School Items" },
             "lehrerin": { gender: "die", meaning: "teacher (female)", category: "School Items" },
-            // Food & Drinks
             "tee": { gender: "der", meaning: "tea", category: "Food & Drinks" }, 
             "kaffee": { gender: "der", meaning: "coffee", category: "Food & Drinks" }, 
             "saft": { gender: "der", meaning: "juice", category: "Food & Drinks" }, 
@@ -117,7 +114,6 @@
             "apfel": { gender: "der", meaning: "apple", category: "Food & Drinks" },
             "brot": { gender: "das", meaning: "bread", category: "Food & Drinks" },
             "käse": { gender: "der", meaning: "cheese", category: "Food & Drinks" },
-            // Days & Time
             "montag": { gender: "der", meaning: "Monday", category: "Time & Days" }, 
             "dienstag": { gender: "der", meaning: "Tuesday", category: "Time & Days" }, 
             "mittwoch": { gender: "der", meaning: "Wednesday", category: "Time & Days" }, 
@@ -128,7 +124,6 @@
             "tag": { gender: "der", meaning: "day", category: "Time & Days" },
             "woche": { gender: "die", meaning: "week", category: "Time & Days" },
             "jahr": { gender: "das", meaning: "year", category: "Time & Days" },
-            // House & Objects
             "haus": { gender: "das", meaning: "house", category: "House & Home" }, 
             "auto": { gender: "das", meaning: "car", category: "Transport" }, 
             "tisch": { gender: "der", meaning: "table", category: "House & Home" },
@@ -137,7 +132,6 @@
             "lampe": { gender: "die", meaning: "lamp", category: "House & Home" },
             "tür": { gender: "die", meaning: "door", category: "House & Home" },
             "fenster": { gender: "das", meaning: "window", category: "House & Home" },
-            // Animals
             "hund": { gender: "der", meaning: "dog", category: "Animals" }, 
             "hunde": { gender: "plural", meaning: "dogs", category: "Animals" },
             "katze": { gender: "die", meaning: "cat", category: "Animals" },
@@ -153,17 +147,6 @@
         window.onload = function() {
             document.getElementById('categoryInput').innerHTML = '';
             document.getElementById('tableBody').innerHTML = '';
-            
-            // Setup fallback categories if empty
-            if (categoriesList.length === 0) {
-                categoriesList = [
-                    { id: "school-items", name: "School Items" },
-                    { id: "food---drinks", name: "Food & Drinks" },
-                    { id: "general-vocabulary", name: "General Vocabulary" }
-                ];
-                localStorage.setItem('myGermanCategories', JSON.stringify(categoriesList));
-            }
-
             categoriesList.forEach(cat => createCategoryElements(cat.id, cat.name));
             renderAllWords();
 
@@ -179,6 +162,8 @@
 
         function createCategoryElements(id, name) {
             const selectMenu = document.getElementById('categoryInput');
+            if (document.getElementById(`opt-${id}`)) return; 
+            
             const option = document.createElement('option');
             option.value = id; option.id = `opt-${id}`; option.textContent = name;
             selectMenu.appendChild(option);
@@ -213,13 +198,25 @@
 
         window.addWord = function() {
             const wordInput = document.getElementById('wordInput').value.trim();
-            const category = document.getElementById('categoryInput').value;
-            if (!category) { alert("Please create a category first!"); return; }
+            let category = document.getElementById('categoryInput').value;
             if (wordInput === "") { alert("Please type a word first!"); return; }
             const lookupWord = wordInput.toLowerCase();
             
             let gender = userDatabase[lookupWord]?.gender || baseDatabase[lookupWord]?.gender;
             let meaning = userDatabase[lookupWord]?.meaning || baseDatabase[lookupWord]?.meaning || "";
+
+            if (!category && gender) {
+                let defaultCatName = baseDatabase[lookupWord]?.category || "General Vocabulary";
+                let defaultCatId = defaultCatName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+                if (!categoriesList.some(c => c.id === defaultCatId)) {
+                    categoriesList.push({ id: defaultCatId, name: defaultCatName });
+                    localStorage.setItem('myGermanCategories', JSON.stringify(categoriesList));
+                    createCategoryElements(defaultCatId, defaultCatName);
+                }
+                category = defaultCatId;
+            }
+
+            if (!category) { alert("Please create a category first or use the Auto-Fill button!"); return; }
 
             if (!gender) {
                 const manualGender = prompt(`Type gender ('der', 'die', 'das', or 'plural') for "${wordInput}":`);
@@ -237,39 +234,85 @@
             document.getElementById('wordInput').value = "";
         }
 
-        // REPLACEMENT FEATURE: Works instantly locally without needing external APIs or Keys!
-        window.addWordWithLocalDictionary = function() {
+        // NEW KEYLESS AI AUTOMATION PIPELINE
+        window.addWordWithSmartAI = async function() {
             const wordInput = document.getElementById('wordInput').value.trim();
             if (wordInput === "") { alert("Please type a German word first!"); return; }
             const lookupWord = wordInput.toLowerCase();
+            const btn = document.getElementById('aiBtn');
 
-            // Match with dictionary lookup
-            const foundData = baseDatabase[lookupWord] || userDatabase[lookupWord];
-
-            if (foundData) {
-                let categoryId = document.getElementById('categoryInput').value;
+            // 1. Look locally first to save time/network resources
+            const localMatch = baseDatabase[lookupWord] || userDatabase[lookupWord];
+            if (localMatch) {
+                let targetCatName = localMatch.category || "General Vocabulary";
+                let targetCatId = targetCatName.toLowerCase().replace(/[^a-z0-9]/g, '-');
                 
-                // If the word has a native predefined dictionary group, try targeting it automatically
-                if (foundData.category) {
-                    const dynamicId = foundData.category.toLowerCase().replace(/[^a-z0-9]/g, '-');
-                    let matchedCategory = categoriesList.find(c => c.id === dynamicId);
-                    if (!matchedCategory) {
-                        matchedCategory = { id: dynamicId, name: foundData.category };
-                        categoriesList.push(matchedCategory);
-                        localStorage.setItem('myGermanCategories', JSON.stringify(categoriesList));
-                        createCategoryElements(dynamicId, foundData.category);
-                    }
-                    categoryId = matchedCategory.id;
+                if (!categoriesList.some(c => c.id === targetCatId)) {
+                    categoriesList.push({ id: targetCatId, name: targetCatName });
+                    localStorage.setItem('myGermanCategories', JSON.stringify(categoriesList));
+                    createCategoryElements(targetCatId, targetCatName);
                 }
-
-                displayWordInGrid(wordInput, categoryId, foundData.gender, foundData.meaning);
-                savedWordsList.push({ word: wordInput, category: categoryId, gender: foundData.gender, meaning: foundData.meaning });
+                
+                displayWordInGrid(wordInput, targetCatId, localMatch.gender, localMatch.meaning);
+                savedWordsList.push({ word: wordInput, category: targetCatId, gender: localMatch.gender, meaning: localMatch.meaning });
                 localStorage.setItem('mySavedWordsGrid', JSON.stringify(savedWordsList));
                 document.getElementById('wordInput').value = "";
-            } else {
-                // Smooth fallback if word isn't listed in preset dictionary
-                alert(`"${wordInput}" was not found in the quick local dictionary. Let's add it manually!`);
+                return;
+            }
+
+            // 2. Fetch from the cloud using an open Keyless inference worker
+            try {
+                btn.disabled = true;
+                btn.textContent = "⚡ AI Analyzing...";
+
+                const promptMessage = `Return JSON format ONLY for the German noun "${wordInput}". Scheme: {"gender": "der/die/das/plural", "meaning": "English single word translation", "category": "Simple English Broad Topic Category"}`;
+                
+                const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(promptMessage)}?json=true`);
+                if (!response.ok) throw new Error("Keyless pipeline busy.");
+                
+                const data = await response.json();
+                
+                if (!data.gender || !data.meaning) {
+                    throw new Error("Invalid structure returned.");
+                }
+
+                let cleanedGender = data.gender.toLowerCase().trim();
+                if (!['der', 'die', 'das', 'plural'].includes(cleanedGender)) {
+                    cleanedGender = "der"; 
+                }
+
+                let rawCategory = data.category || "General Vocabulary";
+                // Capitalize first letters neatly
+                let cleanCategoryName = rawCategory.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                let cleanCategoryId = cleanCategoryName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+                // Dynamic Category Creation on the fly!
+                let matchedCategory = categoriesList.find(c => c.id === cleanCategoryId);
+                if (!matchedCategory) {
+                    matchedCategory = { id: cleanCategoryId, name: cleanCategoryName };
+                    categoriesList.push(matchedCategory);
+                    localStorage.setItem('myGermanCategories', JSON.stringify(categoriesList));
+                    createCategoryElements(cleanCategoryId, cleanCategoryName);
+                }
+
+                // Save to local cache database for instant lookups in future
+                userDatabase[lookupWord] = { gender: cleanedGender, meaning: data.meaning, category: cleanCategoryName };
+                localStorage.setItem('myGermanDatabase', JSON.stringify(userDatabase));
+
+                // Paint to the grid
+                displayWordInGrid(wordInput, matchedCategory.id, cleanedGender, data.meaning);
+                savedWordsList.push({ word: wordInput, category: matchedCategory.id, gender: cleanedGender, meaning: data.meaning });
+                localStorage.setItem('mySavedWordsGrid', JSON.stringify(savedWordsList));
+                
+                document.getElementById('wordInput').value = "";
+
+            } catch (err) {
+                console.error(err);
+                alert("Network busy or word unrecognized. Switching to manual insertion.");
                 addWord();
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "✨ Auto-Fill & Add";
             }
         }
 
